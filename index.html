@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>منظم حسابات الألعاب</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-kicker">Ahmed Accounts</span>
+          <h1>منظم حسابات الألعاب</h1>
+        </div>
+
+        <nav class="game-tabs" aria-label="الألعاب">
+          <button
+            class="game-tab is-active"
+            type="button"
+            data-game="overwatch"
+            style="--tab-image: url('https://i.pinimg.com/1200x/99/2c/6d/992c6dd7f20b46a6057e242a480d6004.jpg')"
+          >
+            <span>Overwatch</span>
+          </button>
+          <button
+            class="game-tab"
+            type="button"
+            data-game="valorant"
+            style="--tab-image: url('https://i.pinimg.com/736x/92/51/1c/92511cdffca01187823a36026285892b.jpg')"
+          >
+            <span>Valorant</span>
+          </button>
+          <button
+            class="game-tab"
+            type="button"
+            data-game="arc"
+            style="--tab-image: url('https://i.pinimg.com/736x/39/ef/a0/39efa0f2c487a727cb9123e4dcc4175a.jpg')"
+          >
+            <span>ARC Raiders</span>
+          </button>
+        </nav>
+      </header>
+
+      <section class="workspace" aria-live="polite">
+        <aside class="entry-panel">
+          <div class="panel-heading">
+            <span id="activeGameName">Overwatch</span>
+            <strong>إضافة حساب</strong>
+          </div>
+
+          <form id="accountForm" class="account-form">
+            <label class="upload-box" for="accountImage">
+              <input id="accountImage" name="accountImage" type="file" accept="image/*" required />
+              <img id="imagePreview" alt="" />
+              <span id="uploadText">ارفع صورة الحساب</span>
+            </label>
+
+            <label class="field">
+              <span>معلومات التسجيل</span>
+              <textarea
+                id="accountInfo"
+                name="accountInfo"
+                rows="6"
+                placeholder="اكتب الإيميل، كلمة السر، الملاحظات، أو أي بيانات تخص الحساب"
+                required
+              ></textarea>
+            </label>
+
+            <label class="field">
+              <span>سعر الحساب</span>
+              <input
+                id="accountPrice"
+                name="accountPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                inputmode="decimal"
+                placeholder="0"
+                required
+              />
+            </label>
+
+            <button class="glass-button primary-action" type="submit">إضافة الحساب</button>
+          </form>
+        </aside>
+
+        <section class="account-column pending-column">
+          <div class="column-title">
+            <span>لم يتم التسليم</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+          <div id="pendingList" class="account-list"></div>
+        </section>
+
+        <section class="account-column delivered-column">
+          <div class="column-title">
+            <span>تم التسليم</span>
+            <strong id="deliveredCount">0</strong>
+          </div>
+          <div id="deliveredList" class="account-list"></div>
+        </section>
+      </section>
+
+      <aside class="total-box" aria-label="المبالغ المستحقة">
+        <span>المبالغ المستحقة</span>
+        <strong id="activeTotal">0</strong>
+        <small id="globalTotal">كل الألعاب: 0</small>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
