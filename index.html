@@ -1,113 +1,178 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>منظم حسابات الألعاب</title>
+    <title>Ahmed Account Manager</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-kicker">Ahmed Accounts</span>
-          <h1>منظم حسابات الألعاب</h1>
+    <main class="home-shell">
+      <nav class="game-tabs" aria-label="Games">
+        <button
+          class="game-tab"
+          type="button"
+          data-game="overwatch"
+          style="--tab-image: url('https://i.pinimg.com/1200x/99/2c/6d/992c6dd7f20b46a6057e242a480d6004.jpg')"
+        >
+          <span>Overwatch</span>
+        </button>
+        <button
+          class="game-tab"
+          type="button"
+          data-game="valorant"
+          style="--tab-image: url('https://i.pinimg.com/736x/92/51/1c/92511cdffca01187823a36026285892b.jpg')"
+        >
+          <span>Valorant</span>
+        </button>
+        <button
+          class="game-tab"
+          type="button"
+          data-game="arc"
+          style="--tab-image: url('https://i.pinimg.com/736x/39/ef/a0/39efa0f2c487a727cb9123e4dcc4175a.jpg')"
+        >
+          <span>ARC Raiders</span>
+        </button>
+      </nav>
+
+      <section class="amount-due" aria-label="Amount due">
+        <span>Amount Due</span>
+        <strong id="globalTotal">0</strong>
+      </section>
+
+      <button class="add-account-button" type="button" id="openAddAccount">
+        <span class="plus-mark">+</span>
+        <span>Add Account</span>
+      </button>
+
+      <section class="game-panel" id="gamePanel" aria-hidden="true">
+        <div class="panel-header">
+          <div>
+            <span class="eyebrow">Selected Game</span>
+            <h1 id="panelGameName">Overwatch</h1>
+          </div>
+          <button class="icon-button" type="button" id="closeGamePanel" aria-label="Close game panel">×</button>
         </div>
 
-        <nav class="game-tabs" aria-label="الألعاب">
+        <div class="panel-stats">
+          <div>
+            <span>Pending</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+          <div>
+            <span>Delivered</span>
+            <strong id="deliveredCount">0</strong>
+          </div>
+          <div>
+            <span>Game Total</span>
+            <strong id="activeTotal">0</strong>
+          </div>
+        </div>
+
+        <div class="account-board">
+          <section class="account-column">
+            <div class="column-title">
+              <span>Not Delivered</span>
+            </div>
+            <div id="pendingList" class="account-list"></div>
+          </section>
+
+          <section class="account-column">
+            <div class="column-title">
+              <span>Delivered</span>
+            </div>
+            <div id="deliveredList" class="account-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal" id="gamePickerModal" aria-hidden="true" role="dialog" aria-labelledby="gamePickerTitle">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card game-picker-card">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">New Account</span>
+            <h2 id="gamePickerTitle">Where should it go?</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <div class="picker-grid">
           <button
-            class="game-tab is-active"
+            class="picker-option"
             type="button"
-            data-game="overwatch"
+            data-pick-game="overwatch"
             style="--tab-image: url('https://i.pinimg.com/1200x/99/2c/6d/992c6dd7f20b46a6057e242a480d6004.jpg')"
           >
             <span>Overwatch</span>
           </button>
           <button
-            class="game-tab"
+            class="picker-option"
             type="button"
-            data-game="valorant"
+            data-pick-game="valorant"
             style="--tab-image: url('https://i.pinimg.com/736x/92/51/1c/92511cdffca01187823a36026285892b.jpg')"
           >
             <span>Valorant</span>
           </button>
           <button
-            class="game-tab"
+            class="picker-option"
             type="button"
-            data-game="arc"
+            data-pick-game="arc"
             style="--tab-image: url('https://i.pinimg.com/736x/39/ef/a0/39efa0f2c487a727cb9123e4dcc4175a.jpg')"
           >
             <span>ARC Raiders</span>
           </button>
-        </nav>
-      </header>
-
-      <section class="workspace" aria-live="polite">
-        <aside class="entry-panel">
-          <div class="panel-heading">
-            <span id="activeGameName">Overwatch</span>
-            <strong>إضافة حساب</strong>
-          </div>
-
-          <form id="accountForm" class="account-form">
-            <label class="upload-box" for="accountImage">
-              <input id="accountImage" name="accountImage" type="file" accept="image/*" required />
-              <img id="imagePreview" alt="" />
-              <span id="uploadText">ارفع صورة الحساب</span>
-            </label>
-
-            <label class="field">
-              <span>معلومات التسجيل</span>
-              <textarea
-                id="accountInfo"
-                name="accountInfo"
-                rows="6"
-                placeholder="اكتب الإيميل، كلمة السر، الملاحظات، أو أي بيانات تخص الحساب"
-                required
-              ></textarea>
-            </label>
-
-            <label class="field">
-              <span>سعر الحساب</span>
-              <input
-                id="accountPrice"
-                name="accountPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                inputmode="decimal"
-                placeholder="0"
-                required
-              />
-            </label>
-
-            <button class="glass-button primary-action" type="submit">إضافة الحساب</button>
-          </form>
-        </aside>
-
-        <section class="account-column pending-column">
-          <div class="column-title">
-            <span>لم يتم التسليم</span>
-            <strong id="pendingCount">0</strong>
-          </div>
-          <div id="pendingList" class="account-list"></div>
-        </section>
-
-        <section class="account-column delivered-column">
-          <div class="column-title">
-            <span>تم التسليم</span>
-            <strong id="deliveredCount">0</strong>
-          </div>
-          <div id="deliveredList" class="account-list"></div>
-        </section>
+        </div>
       </section>
+    </div>
 
-      <aside class="total-box" aria-label="المبالغ المستحقة">
-        <span>المبالغ المستحقة</span>
-        <strong id="activeTotal">0</strong>
-        <small id="globalTotal">كل الألعاب: 0</small>
-      </aside>
-    </main>
+    <div class="modal" id="accountModal" aria-hidden="true" role="dialog" aria-labelledby="accountModalTitle">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card form-card">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow" id="formGameName">Overwatch</span>
+            <h2 id="accountModalTitle">Add Account</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+
+        <form id="accountForm" class="account-form">
+          <label class="upload-box" for="accountImage">
+            <input id="accountImage" name="accountImage" type="file" accept="image/*" required />
+            <img id="imagePreview" alt="" />
+            <span id="uploadText">Upload account image</span>
+          </label>
+
+          <label class="field">
+            <span>Login Information</span>
+            <textarea
+              id="accountInfo"
+              name="accountInfo"
+              rows="6"
+              placeholder="Email, password, notes, rank, skins, or any account details"
+              required
+            ></textarea>
+          </label>
+
+          <label class="field">
+            <span>Account Price</span>
+            <input
+              id="accountPrice"
+              name="accountPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="0"
+              required
+            />
+          </label>
+
+          <button class="glass-button primary-action" type="submit">Save Account</button>
+        </form>
+      </section>
+    </div>
 
     <script src="app.js"></script>
   </body>

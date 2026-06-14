@@ -23,6 +23,14 @@ const emptyStore = () => ({
 
 const elements = {
   tabs: document.querySelectorAll(".game-tab"),
+  openAddAccount: document.querySelector("#openAddAccount"),
+  gamePanel: document.querySelector("#gamePanel"),
+  closeGamePanel: document.querySelector("#closeGamePanel"),
+  panelGameName: document.querySelector("#panelGameName"),
+  gamePickerModal: document.querySelector("#gamePickerModal"),
+  accountModal: document.querySelector("#accountModal"),
+  gamePickers: document.querySelectorAll("[data-pick-game]"),
+  formGameName: document.querySelector("#formGameName"),
   form: document.querySelector("#accountForm"),
   imageInput: document.querySelector("#accountImage"),
   imagePreview: document.querySelector("#imagePreview"),
@@ -30,7 +38,6 @@ const elements = {
   uploadText: document.querySelector("#uploadText"),
   info: document.querySelector("#accountInfo"),
   price: document.querySelector("#accountPrice"),
-  activeGameName: document.querySelector("#activeGameName"),
   pendingList: document.querySelector("#pendingList"),
   deliveredList: document.querySelector("#deliveredList"),
   pendingCount: document.querySelector("#pendingCount"),
@@ -41,6 +48,7 @@ const elements = {
 
 let store = loadStore();
 let selectedImage = "";
+let selectedFormGame = store.activeGame;
 
 function loadStore() {
   try {
@@ -68,13 +76,13 @@ function saveStore() {
 
 function formatPrice(value) {
   const amount = Number(value) || 0;
-  return new Intl.NumberFormat("ar-EG", {
+  return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
   }).format(amount);
 }
 
 function formatDate(timestamp) {
-  return new Intl.DateTimeFormat("ar-EG", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -82,8 +90,8 @@ function formatDate(timestamp) {
   }).format(new Date(timestamp));
 }
 
-function getActiveAccounts() {
-  return store.accounts[store.activeGame] || [];
+function getAccounts(gameId = store.activeGame) {
+  return store.accounts[gameId] || [];
 }
 
 function sumDelivered(accounts) {
@@ -96,11 +104,45 @@ function getGlobalDeliveredTotal() {
   return Object.values(store.accounts).reduce((total, accounts) => total + sumDelivered(accounts), 0);
 }
 
-function setActiveGame(gameId) {
+function openGamePanel(gameId) {
   store.activeGame = gameId;
   saveStore();
-  resetForm();
+  elements.gamePanel.classList.add("is-open");
+  elements.gamePanel.setAttribute("aria-hidden", "false");
   render();
+}
+
+function closeGamePanel() {
+  elements.gamePanel.classList.remove("is-open");
+  elements.gamePanel.setAttribute("aria-hidden", "true");
+}
+
+function openModal(modal) {
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeModal(modal) {
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function closeAllModals() {
+  closeModal(elements.gamePickerModal);
+  closeModal(elements.accountModal);
+}
+
+function openAddFlow() {
+  closeModal(elements.accountModal);
+  openModal(elements.gamePickerModal);
+}
+
+function openAccountForm(gameId) {
+  selectedFormGame = gameId;
+  elements.formGameName.textContent = games[gameId].name;
+  resetForm();
+  closeModal(elements.gamePickerModal);
+  openModal(elements.accountModal);
 }
 
 function resetForm() {
@@ -108,19 +150,15 @@ function resetForm() {
   elements.form.reset();
   elements.imagePreview.removeAttribute("src");
   elements.uploadBox.classList.remove("has-image");
-  elements.uploadText.textContent = "ارفع صورة الحساب";
+  elements.uploadText.textContent = "Upload account image";
 }
 
 function createAccountCard(account) {
   const card = document.createElement("article");
   card.className = "account-card";
 
-  const media = account.image
-    ? `<img src="${account.image}" alt="صورة الحساب" />`
-    : `<div class="image-fallback">No Image</div>`;
-
   card.innerHTML = `
-    ${media}
+    <img src="${account.image}" alt="Account screenshot" />
     <div class="account-body">
       <p class="account-info"></p>
       <div class="account-meta">
@@ -128,9 +166,9 @@ function createAccountCard(account) {
         <span class="date-text">${formatDate(account.createdAt)}</span>
       </div>
       <div class="card-actions">
-        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">تم التسليم</button>
-        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}">لم يتم التسليم</button>
-        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" aria-label="حذف الحساب">حذف</button>
+        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Delivered</button>
+        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}">Not Delivered</button>
+        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" aria-label="Delete account">Delete</button>
       </div>
     </div>
   `;
@@ -163,28 +201,22 @@ function renderList(listElement, accounts, emptyText) {
 }
 
 function render() {
-  const activeAccounts = getActiveAccounts();
+  const activeAccounts = getAccounts();
   const pendingAccounts = activeAccounts.filter((account) => !account.delivered);
   const deliveredAccounts = activeAccounts.filter((account) => account.delivered);
-  const activeTotal = sumDelivered(activeAccounts);
-  const globalTotal = getGlobalDeliveredTotal();
 
-  elements.tabs.forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.game === store.activeGame);
-  });
-
-  elements.activeGameName.textContent = games[store.activeGame].name;
+  elements.panelGameName.textContent = games[store.activeGame].name;
   elements.pendingCount.textContent = pendingAccounts.length;
   elements.deliveredCount.textContent = deliveredAccounts.length;
-  elements.activeTotal.textContent = formatPrice(activeTotal);
-  elements.globalTotal.textContent = `كل الألعاب: ${formatPrice(globalTotal)}`;
+  elements.activeTotal.textContent = formatPrice(sumDelivered(activeAccounts));
+  elements.globalTotal.textContent = formatPrice(getGlobalDeliveredTotal());
 
-  renderList(elements.pendingList, pendingAccounts, "لا توجد حسابات غير مسلمة");
-  renderList(elements.deliveredList, deliveredAccounts, "لا توجد حسابات مسلمة");
+  renderList(elements.pendingList, pendingAccounts, "No pending accounts yet.");
+  renderList(elements.deliveredList, deliveredAccounts, "No delivered accounts yet.");
 }
 
 function updateAccountStatus(accountId, delivered) {
-  store.accounts[store.activeGame] = getActiveAccounts().map((account) =>
+  store.accounts[store.activeGame] = getAccounts().map((account) =>
     account.id === accountId ? { ...account, delivered } : account,
   );
   saveStore();
@@ -192,12 +224,12 @@ function updateAccountStatus(accountId, delivered) {
 }
 
 function deleteAccount(accountId) {
-  const confirmed = window.confirm("هل تريد حذف هذا الحساب؟");
+  const confirmed = window.confirm("Delete this account?");
   if (!confirmed) {
     return;
   }
 
-  store.accounts[store.activeGame] = getActiveAccounts().filter((account) => account.id !== accountId);
+  store.accounts[store.activeGame] = getAccounts().filter((account) => account.id !== accountId);
   saveStore();
   render();
 }
@@ -224,7 +256,25 @@ function handleListClick(event) {
 }
 
 elements.tabs.forEach((tab) => {
-  tab.addEventListener("click", () => setActiveGame(tab.dataset.game));
+  tab.addEventListener("click", () => openGamePanel(tab.dataset.game));
+});
+
+elements.openAddAccount.addEventListener("click", openAddFlow);
+elements.closeGamePanel.addEventListener("click", closeGamePanel);
+
+document.querySelectorAll("[data-close-modal]").forEach((closeButton) => {
+  closeButton.addEventListener("click", closeAllModals);
+});
+
+elements.gamePickers.forEach((picker) => {
+  picker.addEventListener("click", () => openAccountForm(picker.dataset.pickGame));
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeAllModals();
+    closeGamePanel();
+  }
 });
 
 elements.imageInput.addEventListener("change", () => {
@@ -233,7 +283,7 @@ elements.imageInput.addEventListener("change", () => {
     selectedImage = "";
     elements.imagePreview.removeAttribute("src");
     elements.uploadBox.classList.remove("has-image");
-    elements.uploadText.textContent = "ارفع صورة الحساب";
+    elements.uploadText.textContent = "Upload account image";
     return;
   }
 
@@ -242,7 +292,7 @@ elements.imageInput.addEventListener("change", () => {
     selectedImage = String(reader.result);
     elements.imagePreview.src = selectedImage;
     elements.uploadBox.classList.add("has-image");
-    elements.uploadText.textContent = "تغيير الصورة";
+    elements.uploadText.textContent = "Change image";
   });
   reader.readAsDataURL(file);
 });
@@ -266,10 +316,12 @@ elements.form.addEventListener("submit", (event) => {
     createdAt: Date.now(),
   };
 
-  store.accounts[store.activeGame] = [account, ...getActiveAccounts()];
+  store.accounts[selectedFormGame] = [account, ...getAccounts(selectedFormGame)];
+  store.activeGame = selectedFormGame;
   saveStore();
+  closeModal(elements.accountModal);
   resetForm();
-  render();
+  openGamePanel(selectedFormGame);
 });
 
 elements.pendingList.addEventListener("click", handleListClick);

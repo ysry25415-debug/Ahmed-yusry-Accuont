@@ -1,13 +1,13 @@
-# منظم حسابات الألعاب
+# Ahmed Account Manager
 
-موقع محلي بسيط لإدارة حسابات Overwatch وValorant وARC Raiders.
+A local static website for organizing Overwatch, Valorant, and ARC Raiders accounts.
 
-## التشغيل
+## Usage
 
-افتح ملف `index.html` في المتصفح. البيانات والصور التي تضيفها تحفظ محليا داخل المتصفح باستخدام `localStorage`.
+Open `index.html` in a browser. Account data and uploaded images are saved locally in the browser with `localStorage`.
 
-## ملاحظات
+## Notes
 
-- كل لعبة لها قائمة منفصلة.
-- الحساب الجديد يدخل تلقائيا في خانة `لم يتم التسليم`.
-- عند الضغط على `تم التسليم` ينتقل الحساب إلى خانة التسليم ويتم جمع سعره في صندوق `المبالغ المستحقة` أسفل يسار الصفحة.
+- Each game has a separate account board.
+- New accounts start as `Not Delivered`.
+- When an account is marked `Delivered`, its price is added to the bright green amount due on the home screen.
