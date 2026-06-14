@@ -11,3 +11,4 @@ Open `index.html` in a browser. Account data and uploaded images are saved local
 - Each game has a separate account board.
 - New accounts start as `Not Delivered`.
 - When an account is marked `Delivered`, its price is added to the bright green amount due on the home screen.
+- Deleted accounts move to `Deleted Accounts` and no longer count toward the amount due.

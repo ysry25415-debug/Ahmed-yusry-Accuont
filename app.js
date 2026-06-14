@@ -40,8 +40,10 @@ const elements = {
   price: document.querySelector("#accountPrice"),
   pendingList: document.querySelector("#pendingList"),
   deliveredList: document.querySelector("#deliveredList"),
+  deletedList: document.querySelector("#deletedList"),
   pendingCount: document.querySelector("#pendingCount"),
   deliveredCount: document.querySelector("#deliveredCount"),
+  deletedCount: document.querySelector("#deletedCount"),
   activeTotal: document.querySelector("#activeTotal"),
   globalTotal: document.querySelector("#globalTotal"),
 };
@@ -94,9 +96,21 @@ function getAccounts(gameId = store.activeGame) {
   return store.accounts[gameId] || [];
 }
 
+function getAccountStatus(account) {
+  if (account.status) {
+    return account.status;
+  }
+
+  if (account.deleted) {
+    return "deleted";
+  }
+
+  return account.delivered ? "delivered" : "pending";
+}
+
 function sumDelivered(accounts) {
   return accounts
-    .filter((account) => account.delivered)
+    .filter((account) => getAccountStatus(account) === "delivered")
     .reduce((total, account) => total + (Number(account.price) || 0), 0);
 }
 
@@ -156,6 +170,18 @@ function resetForm() {
 function createAccountCard(account) {
   const card = document.createElement("article");
   card.className = "account-card";
+  const status = getAccountStatus(account);
+  const actions =
+    status === "deleted"
+      ? `
+        <button class="glass-button restore-button" type="button" data-action="restore" data-id="${account.id}">Restore</button>
+        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Restore Delivered</button>
+      `
+      : `
+        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Delivered</button>
+        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}">Not Delivered</button>
+        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" aria-label="Delete account">Delete</button>
+      `;
 
   card.innerHTML = `
     <img src="${account.image}" alt="Account screenshot" />
@@ -166,16 +192,20 @@ function createAccountCard(account) {
         <span class="date-text">${formatDate(account.createdAt)}</span>
       </div>
       <div class="card-actions">
-        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Delivered</button>
-        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}">Not Delivered</button>
-        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" aria-label="Delete account">Delete</button>
+        ${actions}
       </div>
     </div>
   `;
 
   card.querySelector(".account-info").textContent = account.info;
-  card.querySelector('[data-action="deliver"]').disabled = account.delivered;
-  card.querySelector('[data-action="pending"]').disabled = !account.delivered;
+  const deliverButton = card.querySelector('[data-action="deliver"]');
+  const pendingButton = card.querySelector('[data-action="pending"]');
+  if (deliverButton && status !== "deleted") {
+    deliverButton.disabled = status === "delivered";
+  }
+  if (pendingButton) {
+    pendingButton.disabled = status === "pending";
+  }
 
   return card;
 }
@@ -202,36 +232,47 @@ function renderList(listElement, accounts, emptyText) {
 
 function render() {
   const activeAccounts = getAccounts();
-  const pendingAccounts = activeAccounts.filter((account) => !account.delivered);
-  const deliveredAccounts = activeAccounts.filter((account) => account.delivered);
+  const pendingAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "pending");
+  const deliveredAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "delivered");
+  const deletedAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "deleted");
 
   elements.panelGameName.textContent = games[store.activeGame].name;
   elements.pendingCount.textContent = pendingAccounts.length;
   elements.deliveredCount.textContent = deliveredAccounts.length;
+  elements.deletedCount.textContent = deletedAccounts.length;
   elements.activeTotal.textContent = formatPrice(sumDelivered(activeAccounts));
   elements.globalTotal.textContent = formatPrice(getGlobalDeliveredTotal());
 
   renderList(elements.pendingList, pendingAccounts, "No pending accounts yet.");
   renderList(elements.deliveredList, deliveredAccounts, "No delivered accounts yet.");
+  renderList(elements.deletedList, deletedAccounts, "No deleted accounts yet.");
 }
 
-function updateAccountStatus(accountId, delivered) {
-  store.accounts[store.activeGame] = getAccounts().map((account) =>
-    account.id === accountId ? { ...account, delivered } : account,
-  );
+function updateAccountStatus(accountId, status) {
+  store.accounts[store.activeGame] = getAccounts().map((account) => {
+    if (account.id !== accountId) {
+      return account;
+    }
+
+    return {
+      ...account,
+      status,
+      delivered: status === "delivered",
+      deleted: status === "deleted",
+      deletedAt: status === "deleted" ? Date.now() : null,
+    };
+  });
   saveStore();
   render();
 }
 
 function deleteAccount(accountId) {
-  const confirmed = window.confirm("Delete this account?");
+  const confirmed = window.confirm("Move this account to Deleted Accounts?");
   if (!confirmed) {
     return;
   }
 
-  store.accounts[store.activeGame] = getAccounts().filter((account) => account.id !== accountId);
-  saveStore();
-  render();
+  updateAccountStatus(accountId, "deleted");
 }
 
 function handleListClick(event) {
@@ -243,11 +284,15 @@ function handleListClick(event) {
   const { action, id } = button.dataset;
 
   if (action === "deliver") {
-    updateAccountStatus(id, true);
+    updateAccountStatus(id, "delivered");
   }
 
   if (action === "pending") {
-    updateAccountStatus(id, false);
+    updateAccountStatus(id, "pending");
+  }
+
+  if (action === "restore") {
+    updateAccountStatus(id, "pending");
   }
 
   if (action === "delete") {
@@ -312,7 +357,9 @@ elements.form.addEventListener("submit", (event) => {
     image: selectedImage,
     info,
     price,
+    status: "pending",
     delivered: false,
+    deleted: false,
     createdAt: Date.now(),
   };
 
@@ -326,5 +373,6 @@ elements.form.addEventListener("submit", (event) => {
 
 elements.pendingList.addEventListener("click", handleListClick);
 elements.deliveredList.addEventListener("click", handleListClick);
+elements.deletedList.addEventListener("click", handleListClick);
 
 render();
