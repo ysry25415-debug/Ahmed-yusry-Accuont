@@ -136,20 +136,21 @@ function rowFromAccount(account, gameId) {
 
 async function loadRemoteAccounts() {
   try {
+    const localStore = loadStore();
     const payload = await requestAccountsApi();
-    const nextStore = emptyStore();
+    const remoteStore = emptyStore();
 
     (payload.accounts || []).forEach((row) => {
-      if (nextStore.accounts[row.game_id]) {
-        nextStore.accounts[row.game_id].push(accountFromRow(row));
+      if (remoteStore.accounts[row.game_id]) {
+        remoteStore.accounts[row.game_id].push(accountFromRow(row));
       }
     });
 
-    nextStore.activeGame = store.activeGame;
-    store = nextStore;
     remoteEnabled = true;
+    store = mergeStores(remoteStore, localStore);
     saveStore();
     render();
+    await uploadMissingLocalAccounts(localStore, remoteStore);
   } catch (error) {
     remoteEnabled = false;
     console.warn("Supabase sync is not available. Using local browser storage.", error);
@@ -234,6 +235,42 @@ function getDeletedAccounts() {
       .filter((account) => getAccountStatus(account) === "deleted")
       .map((account) => ({ account, gameId })),
   );
+}
+
+function getAllAccounts(sourceStore = store) {
+  return Object.entries(sourceStore.accounts).flatMap(([gameId, accounts]) =>
+    accounts.map((account) => ({ account, gameId })),
+  );
+}
+
+function mergeStores(remoteStore, localStore) {
+  const mergedStore = {
+    ...remoteStore,
+    activeGame: localStore.activeGame || remoteStore.activeGame,
+    accounts: {
+      overwatch: [...remoteStore.accounts.overwatch],
+      valorant: [...remoteStore.accounts.valorant],
+      arc: [...remoteStore.accounts.arc],
+    },
+  };
+
+  Object.entries(localStore.accounts).forEach(([gameId, accounts]) => {
+    const remoteIds = new Set(mergedStore.accounts[gameId].map((account) => account.id));
+    accounts.forEach((account) => {
+      if (!remoteIds.has(account.id)) {
+        mergedStore.accounts[gameId].push(account);
+      }
+    });
+  });
+
+  return mergedStore;
+}
+
+async function uploadMissingLocalAccounts(localStore, remoteStore) {
+  const remoteIds = new Set(getAllAccounts(remoteStore).map(({ account }) => account.id));
+  const missingAccounts = getAllAccounts(localStore).filter(({ account }) => !remoteIds.has(account.id));
+
+  await Promise.all(missingAccounts.map(({ account, gameId }) => createRemoteAccount(account, gameId)));
 }
 
 function openGamePanel(gameId) {
@@ -425,7 +462,7 @@ function render() {
   }
 }
 
-function updateAccountStatus(accountId, status, gameId = store.activeGame) {
+async function updateAccountStatus(accountId, status, gameId = store.activeGame) {
   let updatedAccount = null;
 
   store.accounts[gameId] = getAccounts(gameId).map((account) => {
@@ -448,20 +485,20 @@ function updateAccountStatus(accountId, status, gameId = store.activeGame) {
   render();
 
   if (updatedAccount) {
-    updateRemoteAccount(updatedAccount, gameId);
+    await updateRemoteAccount(updatedAccount, gameId);
   }
 }
 
-function deleteAccount(accountId, gameId) {
+async function deleteAccount(accountId, gameId) {
   const confirmed = window.confirm("Move this account to Deleted Accounts?");
   if (!confirmed) {
     return;
   }
 
-  updateAccountStatus(accountId, "deleted", gameId);
+  await updateAccountStatus(accountId, "deleted", gameId);
 }
 
-function handleListClick(event) {
+async function handleListClick(event) {
   const button = event.target.closest("button[data-action]");
   if (!button) {
     return;
@@ -471,19 +508,19 @@ function handleListClick(event) {
   const gameId = game || store.activeGame;
 
   if (action === "deliver") {
-    updateAccountStatus(id, "delivered", gameId);
+    await updateAccountStatus(id, "delivered", gameId);
   }
 
   if (action === "pending") {
-    updateAccountStatus(id, "pending", gameId);
+    await updateAccountStatus(id, "pending", gameId);
   }
 
   if (action === "restore") {
-    updateAccountStatus(id, "pending", gameId);
+    await updateAccountStatus(id, "pending", gameId);
   }
 
   if (action === "delete") {
-    deleteAccount(id, gameId);
+    await deleteAccount(id, gameId);
   }
 
   if (action === "edit") {
@@ -534,7 +571,7 @@ elements.imageInput.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
-elements.form.addEventListener("submit", (event) => {
+elements.form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const description = elements.description.value.trim();
@@ -569,7 +606,7 @@ elements.form.addEventListener("submit", (event) => {
     resetForm();
     openGamePanel(selectedFormGame);
     if (updatedAccount) {
-      updateRemoteAccount(updatedAccount, selectedFormGame);
+      await updateRemoteAccount(updatedAccount, selectedFormGame);
     }
     return;
   }
@@ -589,7 +626,7 @@ elements.form.addEventListener("submit", (event) => {
   store.accounts[selectedFormGame] = [account, ...getAccounts(selectedFormGame)];
   store.activeGame = selectedFormGame;
   saveStore();
-  createRemoteAccount(account, selectedFormGame);
+  await createRemoteAccount(account, selectedFormGame);
   closeModal(elements.accountModal);
   resetForm();
   openGamePanel(selectedFormGame);
