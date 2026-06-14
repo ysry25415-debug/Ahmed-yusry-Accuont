@@ -24,11 +24,13 @@ const emptyStore = () => ({
 const elements = {
   tabs: document.querySelectorAll(".game-tab"),
   openAddAccount: document.querySelector("#openAddAccount"),
+  openDeletedAccounts: document.querySelector("#openDeletedAccounts"),
   gamePanel: document.querySelector("#gamePanel"),
   closeGamePanel: document.querySelector("#closeGamePanel"),
   panelGameName: document.querySelector("#panelGameName"),
   gamePickerModal: document.querySelector("#gamePickerModal"),
   accountModal: document.querySelector("#accountModal"),
+  deletedModal: document.querySelector("#deletedModal"),
   gamePickers: document.querySelectorAll("[data-pick-game]"),
   formGameName: document.querySelector("#formGameName"),
   form: document.querySelector("#accountForm"),
@@ -43,7 +45,6 @@ const elements = {
   deletedList: document.querySelector("#deletedList"),
   pendingCount: document.querySelector("#pendingCount"),
   deliveredCount: document.querySelector("#deliveredCount"),
-  deletedCount: document.querySelector("#deletedCount"),
   activeTotal: document.querySelector("#activeTotal"),
   globalTotal: document.querySelector("#globalTotal"),
 };
@@ -118,6 +119,14 @@ function getGlobalDeliveredTotal() {
   return Object.values(store.accounts).reduce((total, accounts) => total + sumDelivered(accounts), 0);
 }
 
+function getDeletedAccounts() {
+  return Object.entries(store.accounts).flatMap(([gameId, accounts]) =>
+    accounts
+      .filter((account) => getAccountStatus(account) === "deleted")
+      .map((account) => ({ account, gameId })),
+  );
+}
+
 function openGamePanel(gameId) {
   store.activeGame = gameId;
   saveStore();
@@ -144,11 +153,20 @@ function closeModal(modal) {
 function closeAllModals() {
   closeModal(elements.gamePickerModal);
   closeModal(elements.accountModal);
+  closeModal(elements.deletedModal);
 }
 
 function openAddFlow() {
   closeModal(elements.accountModal);
+  closeModal(elements.deletedModal);
   openModal(elements.gamePickerModal);
+}
+
+function openDeletedAccounts() {
+  closeModal(elements.gamePickerModal);
+  closeModal(elements.accountModal);
+  renderDeletedAccounts();
+  openModal(elements.deletedModal);
 }
 
 function openAccountForm(gameId) {
@@ -167,25 +185,28 @@ function resetForm() {
   elements.uploadText.textContent = "Upload account image";
 }
 
-function createAccountCard(account) {
+function createAccountCard(account, gameId = store.activeGame, options = {}) {
   const card = document.createElement("article");
   card.className = "account-card";
   const status = getAccountStatus(account);
+  const gameAttribute = `data-game="${gameId}"`;
   const actions =
     status === "deleted"
       ? `
-        <button class="glass-button restore-button" type="button" data-action="restore" data-id="${account.id}">Restore</button>
-        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Restore Delivered</button>
+        <button class="glass-button restore-button" type="button" data-action="restore" data-id="${account.id}" ${gameAttribute}>Restore</button>
+        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Restore Delivered</button>
       `
       : `
-        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}">Delivered</button>
-        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}">Not Delivered</button>
-        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" aria-label="Delete account">Delete</button>
+        <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Delivered</button>
+        <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}" ${gameAttribute}>Not Delivered</button>
+        <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" ${gameAttribute} aria-label="Delete account">Delete</button>
       `;
+  const gameTag = options.showGame ? `<span class="account-game-tag">${games[gameId].name}</span>` : "";
 
   card.innerHTML = `
     <img src="${account.image}" alt="Account screenshot" />
     <div class="account-body">
+      ${gameTag}
       <p class="account-info"></p>
       <div class="account-meta">
         <span class="price-pill">${formatPrice(account.price)}</span>
@@ -217,7 +238,7 @@ function createEmptyState(text) {
   return empty;
 }
 
-function renderList(listElement, accounts, emptyText) {
+function renderList(listElement, accounts, emptyText, options = {}) {
   listElement.textContent = "";
 
   if (!accounts.length) {
@@ -226,7 +247,21 @@ function renderList(listElement, accounts, emptyText) {
   }
 
   accounts.forEach((account) => {
-    listElement.append(createAccountCard(account));
+    listElement.append(createAccountCard(account, options.gameId || store.activeGame, options));
+  });
+}
+
+function renderDeletedAccounts() {
+  elements.deletedList.textContent = "";
+  const deletedAccounts = getDeletedAccounts();
+
+  if (!deletedAccounts.length) {
+    elements.deletedList.append(createEmptyState("No deleted accounts yet."));
+    return;
+  }
+
+  deletedAccounts.forEach(({ account, gameId }) => {
+    elements.deletedList.append(createAccountCard(account, gameId, { showGame: true }));
   });
 }
 
@@ -234,22 +269,22 @@ function render() {
   const activeAccounts = getAccounts();
   const pendingAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "pending");
   const deliveredAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "delivered");
-  const deletedAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "deleted");
 
   elements.panelGameName.textContent = games[store.activeGame].name;
   elements.pendingCount.textContent = pendingAccounts.length;
   elements.deliveredCount.textContent = deliveredAccounts.length;
-  elements.deletedCount.textContent = deletedAccounts.length;
   elements.activeTotal.textContent = formatPrice(sumDelivered(activeAccounts));
   elements.globalTotal.textContent = formatPrice(getGlobalDeliveredTotal());
 
-  renderList(elements.pendingList, pendingAccounts, "No pending accounts yet.");
-  renderList(elements.deliveredList, deliveredAccounts, "No delivered accounts yet.");
-  renderList(elements.deletedList, deletedAccounts, "No deleted accounts yet.");
+  renderList(elements.pendingList, pendingAccounts, "No pending accounts yet.", { gameId: store.activeGame });
+  renderList(elements.deliveredList, deliveredAccounts, "No delivered accounts yet.", { gameId: store.activeGame });
+  if (elements.deletedModal.classList.contains("is-open")) {
+    renderDeletedAccounts();
+  }
 }
 
-function updateAccountStatus(accountId, status) {
-  store.accounts[store.activeGame] = getAccounts().map((account) => {
+function updateAccountStatus(accountId, status, gameId = store.activeGame) {
+  store.accounts[gameId] = getAccounts(gameId).map((account) => {
     if (account.id !== accountId) {
       return account;
     }
@@ -262,17 +297,18 @@ function updateAccountStatus(accountId, status) {
       deletedAt: status === "deleted" ? Date.now() : null,
     };
   });
+  store.activeGame = gameId;
   saveStore();
   render();
 }
 
-function deleteAccount(accountId) {
+function deleteAccount(accountId, gameId) {
   const confirmed = window.confirm("Move this account to Deleted Accounts?");
   if (!confirmed) {
     return;
   }
 
-  updateAccountStatus(accountId, "deleted");
+  updateAccountStatus(accountId, "deleted", gameId);
 }
 
 function handleListClick(event) {
@@ -281,22 +317,23 @@ function handleListClick(event) {
     return;
   }
 
-  const { action, id } = button.dataset;
+  const { action, id, game } = button.dataset;
+  const gameId = game || store.activeGame;
 
   if (action === "deliver") {
-    updateAccountStatus(id, "delivered");
+    updateAccountStatus(id, "delivered", gameId);
   }
 
   if (action === "pending") {
-    updateAccountStatus(id, "pending");
+    updateAccountStatus(id, "pending", gameId);
   }
 
   if (action === "restore") {
-    updateAccountStatus(id, "pending");
+    updateAccountStatus(id, "pending", gameId);
   }
 
   if (action === "delete") {
-    deleteAccount(id);
+    deleteAccount(id, gameId);
   }
 }
 
@@ -305,6 +342,7 @@ elements.tabs.forEach((tab) => {
 });
 
 elements.openAddAccount.addEventListener("click", openAddFlow);
+elements.openDeletedAccounts.addEventListener("click", openDeletedAccounts);
 elements.closeGamePanel.addEventListener("click", closeGamePanel);
 
 document.querySelectorAll("[data-close-modal]").forEach((closeButton) => {

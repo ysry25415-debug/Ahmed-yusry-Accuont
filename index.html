@@ -40,10 +40,16 @@
         <strong id="globalTotal">0</strong>
       </section>
 
-      <button class="add-account-button" type="button" id="openAddAccount">
-        <span class="plus-mark">+</span>
-        <span>Add Account</span>
-      </button>
+      <div class="home-actions">
+        <button class="home-action-button add-account-button" type="button" id="openAddAccount">
+          <span class="plus-mark">+</span>
+          <span>Add Account</span>
+        </button>
+        <button class="home-action-button deleted-accounts-button" type="button" id="openDeletedAccounts">
+          <span class="trash-mark">×</span>
+          <span>Deleted Accounts</span>
+        </button>
+      </div>
 
       <section class="game-panel" id="gamePanel" aria-hidden="true">
         <div class="panel-header">
@@ -67,10 +73,6 @@
             <span>Game Total</span>
             <strong id="activeTotal">0</strong>
           </div>
-          <div>
-            <span>Deleted</span>
-            <strong id="deletedCount">0</strong>
-          </div>
         </div>
 
         <div class="account-board">
@@ -86,13 +88,6 @@
               <span>Delivered</span>
             </div>
             <div id="deliveredList" class="account-list"></div>
-          </section>
-
-          <section class="account-column deleted-column">
-            <div class="column-title">
-              <span>Deleted Accounts</span>
-            </div>
-            <div id="deletedList" class="account-list"></div>
           </section>
         </div>
       </section>
@@ -182,6 +177,20 @@
 
           <button class="glass-button primary-action" type="submit">Save Account</button>
         </form>
+      </section>
+    </div>
+
+    <div class="modal" id="deletedModal" aria-hidden="true" role="dialog" aria-labelledby="deletedModalTitle">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-card deleted-modal-card">
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">Archive</span>
+            <h2 id="deletedModalTitle">Deleted Accounts</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <div id="deletedList" class="account-list deleted-accounts-list"></div>
       </section>
     </div>
 
