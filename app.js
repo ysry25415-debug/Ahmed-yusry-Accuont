@@ -44,9 +44,11 @@ const elements = {
   price: document.querySelector("#accountPrice"),
   pendingList: document.querySelector("#pendingList"),
   deliveredList: document.querySelector("#deliveredList"),
+  soldList: document.querySelector("#soldList"),
   deletedList: document.querySelector("#deletedList"),
   pendingCount: document.querySelector("#pendingCount"),
   deliveredCount: document.querySelector("#deliveredCount"),
+  soldCount: document.querySelector("#soldCount"),
   activeTotal: document.querySelector("#activeTotal"),
   globalTotal: document.querySelector("#globalTotal"),
   accountModalTitle: document.querySelector("#accountModalTitle"),
@@ -102,15 +104,18 @@ async function requestAccountsApi(path = "", options = {}) {
 }
 
 function accountFromRow(row) {
+  const status = row.status || (row.sold ? "sold" : row.deleted ? "deleted" : row.delivered ? "delivered" : "pending");
+
   return {
     id: row.id,
     image: row.image || "",
     description: row.description || "",
     info: row.info || "",
     price: Number(row.price) || 0,
-    status: row.status || "pending",
-    delivered: Boolean(row.delivered),
-    deleted: Boolean(row.deleted),
+    status,
+    delivered: status === "delivered",
+    sold: status === "sold",
+    deleted: status === "deleted",
     createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
     updatedAt: row.updated_at ? Date.parse(row.updated_at) : null,
     deletedAt: row.deleted_at ? Date.parse(row.deleted_at) : null,
@@ -118,6 +123,8 @@ function accountFromRow(row) {
 }
 
 function rowFromAccount(account, gameId) {
+  const status = getAccountStatus(account);
+
   return {
     id: account.id,
     game_id: gameId,
@@ -125,9 +132,10 @@ function rowFromAccount(account, gameId) {
     description: account.description || "",
     info: account.info || "",
     price: Number(account.price) || 0,
-    status: getAccountStatus(account),
-    delivered: getAccountStatus(account) === "delivered",
-    deleted: getAccountStatus(account) === "deleted",
+    status,
+    delivered: status === "delivered",
+    sold: status === "sold",
+    deleted: status === "deleted",
     created_at: new Date(account.createdAt || Date.now()).toISOString(),
     updated_at: account.updatedAt ? new Date(account.updatedAt).toISOString() : null,
     deleted_at: account.deletedAt ? new Date(account.deletedAt).toISOString() : null,
@@ -216,23 +224,35 @@ function getAccountStatus(account) {
     return "deleted";
   }
 
+  if (account.sold) {
+    return "sold";
+  }
+
   return account.delivered ? "delivered" : "pending";
 }
 
-function sumDelivered(accounts) {
+function sumAmountDue(accounts) {
   return accounts
-    .filter((account) => getAccountStatus(account) === "delivered")
+    .filter((account) => ["delivered", "sold"].includes(getAccountStatus(account)))
     .reduce((total, account) => total + (Number(account.price) || 0), 0);
 }
 
-function getGlobalDeliveredTotal() {
-  return Object.values(store.accounts).reduce((total, accounts) => total + sumDelivered(accounts), 0);
+function getGlobalAmountDueTotal() {
+  return Object.values(store.accounts).reduce((total, accounts) => total + sumAmountDue(accounts), 0);
 }
 
 function getDeletedAccounts() {
   return Object.entries(store.accounts).flatMap(([gameId, accounts]) =>
     accounts
       .filter((account) => getAccountStatus(account) === "deleted")
+      .map((account) => ({ account, gameId })),
+  );
+}
+
+function getSoldAccounts() {
+  return Object.entries(store.accounts).flatMap(([gameId, accounts]) =>
+    accounts
+      .filter((account) => getAccountStatus(account) === "sold")
       .map((account) => ({ account, gameId })),
   );
 }
@@ -369,11 +389,13 @@ function createAccountCard(account, gameId = store.activeGame, options = {}) {
       ? `
         <button class="glass-button restore-button" type="button" data-action="restore" data-id="${account.id}" ${gameAttribute}>Restore</button>
         <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Restore Delivered</button>
+        <button class="glass-button sold-button" type="button" data-action="sold" data-id="${account.id}" ${gameAttribute}>Restore Sold</button>
         <button class="glass-button edit-button" type="button" data-action="edit" data-id="${account.id}" ${gameAttribute}>Edit</button>
       `
       : `
         <button class="glass-button edit-button" type="button" data-action="edit" data-id="${account.id}" ${gameAttribute}>Edit</button>
         <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Delivered</button>
+        <button class="glass-button sold-button" type="button" data-action="sold" data-id="${account.id}" ${gameAttribute}>Sold</button>
         <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}" ${gameAttribute}>Not Delivered</button>
         <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" ${gameAttribute} aria-label="Delete account">Delete</button>
       `;
@@ -399,9 +421,13 @@ function createAccountCard(account, gameId = store.activeGame, options = {}) {
   card.querySelector(".offer-description").textContent = description;
   card.querySelector(".account-info").textContent = account.info;
   const deliverButton = card.querySelector('[data-action="deliver"]');
+  const soldButton = card.querySelector('[data-action="sold"]');
   const pendingButton = card.querySelector('[data-action="pending"]');
   if (deliverButton && status !== "deleted") {
     deliverButton.disabled = status === "delivered";
+  }
+  if (soldButton) {
+    soldButton.disabled = status === "sold";
   }
   if (pendingButton) {
     pendingButton.disabled = status === "pending";
@@ -448,15 +474,18 @@ function render() {
   const activeAccounts = getAccounts();
   const pendingAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "pending");
   const deliveredAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "delivered");
+  const soldAccounts = activeAccounts.filter((account) => getAccountStatus(account) === "sold");
 
   elements.panelGameName.textContent = games[store.activeGame].name;
   elements.pendingCount.textContent = pendingAccounts.length;
   elements.deliveredCount.textContent = deliveredAccounts.length;
-  elements.activeTotal.textContent = formatPrice(sumDelivered(activeAccounts));
-  elements.globalTotal.textContent = formatPrice(getGlobalDeliveredTotal());
+  elements.soldCount.textContent = soldAccounts.length;
+  elements.activeTotal.textContent = formatPrice(sumAmountDue(activeAccounts));
+  elements.globalTotal.textContent = formatPrice(getGlobalAmountDueTotal());
 
   renderList(elements.pendingList, pendingAccounts, "No pending accounts yet.", { gameId: store.activeGame });
   renderList(elements.deliveredList, deliveredAccounts, "No delivered accounts yet.", { gameId: store.activeGame });
+  renderList(elements.soldList, soldAccounts, "No sold accounts yet.", { gameId: store.activeGame });
   if (elements.deletedModal.classList.contains("is-open")) {
     renderDeletedAccounts();
   }
@@ -474,6 +503,7 @@ async function updateAccountStatus(accountId, status, gameId = store.activeGame)
       ...account,
       status,
       delivered: status === "delivered",
+      sold: status === "sold",
       deleted: status === "deleted",
       deletedAt: status === "deleted" ? Date.now() : null,
       updatedAt: Date.now(),
@@ -509,6 +539,10 @@ async function handleListClick(event) {
 
   if (action === "deliver") {
     await updateAccountStatus(id, "delivered", gameId);
+  }
+
+  if (action === "sold") {
+    await updateAccountStatus(id, "sold", gameId);
   }
 
   if (action === "pending") {
@@ -619,6 +653,7 @@ elements.form.addEventListener("submit", async (event) => {
     price,
     status: "pending",
     delivered: false,
+    sold: false,
     deleted: false,
     createdAt: Date.now(),
   };
@@ -634,6 +669,7 @@ elements.form.addEventListener("submit", async (event) => {
 
 elements.pendingList.addEventListener("click", handleListClick);
 elements.deliveredList.addEventListener("click", handleListClick);
+elements.soldList.addEventListener("click", handleListClick);
 elements.deletedList.addEventListener("click", handleListClick);
 
 render();

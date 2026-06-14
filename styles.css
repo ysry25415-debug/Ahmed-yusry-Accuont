@@ -326,7 +326,7 @@ h2 {
 
 .panel-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -359,7 +359,7 @@ h2 {
 
 .account-board {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   min-height: 0;
 }
@@ -503,6 +503,10 @@ h2 {
 
 .pending-button {
   border-color: rgba(255, 209, 102, 0.42);
+}
+
+.sold-button {
+  border-color: rgba(255, 184, 77, 0.52);
 }
 
 .delete-button {

@@ -10,7 +10,8 @@ Open `index.html` in a browser. Account data and uploaded images are saved local
 
 - Each game has a separate account board.
 - New accounts start as `Not Delivered`.
-- When an account is marked `Delivered`, its price is added to the bright green amount due on the home screen.
+- When an account is marked `Delivered` or `Sold`, its price is added to the bright green amount due on the home screen.
+- `Sold` has its own column so you can organize accounts without changing the amount due when you move a delivered account there.
 - Deleted accounts move to the red `Deleted Accounts` button under `Add Account` and no longer count toward the amount due.
 - Each account has an `Offer Description` that appears on the card, and accounts can be edited later.
 - On Vercel, accounts sync through Supabase when the environment variables are configured.

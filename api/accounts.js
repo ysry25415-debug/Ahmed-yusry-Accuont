@@ -43,6 +43,9 @@ async function readBody(request) {
 
 function pickAccountPayload(payload) {
   const account = payload.account || payload;
+  const status =
+    account.status ||
+    (account.sold ? "sold" : account.deleted ? "deleted" : account.delivered ? "delivered" : "pending");
 
   return {
     id: account.id,
@@ -51,9 +54,10 @@ function pickAccountPayload(payload) {
     description: account.description || "",
     info: account.info || "",
     price: Number(account.price) || 0,
-    status: account.status || "pending",
-    delivered: Boolean(account.delivered),
-    deleted: Boolean(account.deleted),
+    status,
+    delivered: status === "delivered",
+    sold: status === "sold",
+    deleted: status === "deleted",
     created_at: account.created_at || new Date().toISOString(),
     updated_at: account.updated_at || null,
     deleted_at: account.deleted_at || null,
