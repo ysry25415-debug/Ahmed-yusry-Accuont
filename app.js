@@ -1,4 +1,5 @@
 const STORAGE_KEY = "ahmed-game-accounts-v1";
+const ACCOUNTS_API = "/api/accounts";
 
 const games = {
   overwatch: {
@@ -56,6 +57,7 @@ let store = loadStore();
 let selectedImage = "";
 let selectedFormGame = store.activeGame;
 let editingAccountId = null;
+let remoteEnabled = false;
 
 function loadStore() {
   try {
@@ -79,6 +81,109 @@ function loadStore() {
 
 function saveStore() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+
+async function requestAccountsApi(path = "", options = {}) {
+  const response = await fetch(`${ACCOUNTS_API}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message || payload.error || "Accounts API request failed.");
+  }
+
+  return payload;
+}
+
+function accountFromRow(row) {
+  return {
+    id: row.id,
+    image: row.image || "",
+    description: row.description || "",
+    info: row.info || "",
+    price: Number(row.price) || 0,
+    status: row.status || "pending",
+    delivered: Boolean(row.delivered),
+    deleted: Boolean(row.deleted),
+    createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
+    updatedAt: row.updated_at ? Date.parse(row.updated_at) : null,
+    deletedAt: row.deleted_at ? Date.parse(row.deleted_at) : null,
+  };
+}
+
+function rowFromAccount(account, gameId) {
+  return {
+    id: account.id,
+    game_id: gameId,
+    image: account.image || "",
+    description: account.description || "",
+    info: account.info || "",
+    price: Number(account.price) || 0,
+    status: getAccountStatus(account),
+    delivered: getAccountStatus(account) === "delivered",
+    deleted: getAccountStatus(account) === "deleted",
+    created_at: new Date(account.createdAt || Date.now()).toISOString(),
+    updated_at: account.updatedAt ? new Date(account.updatedAt).toISOString() : null,
+    deleted_at: account.deletedAt ? new Date(account.deletedAt).toISOString() : null,
+  };
+}
+
+async function loadRemoteAccounts() {
+  try {
+    const payload = await requestAccountsApi();
+    const nextStore = emptyStore();
+
+    (payload.accounts || []).forEach((row) => {
+      if (nextStore.accounts[row.game_id]) {
+        nextStore.accounts[row.game_id].push(accountFromRow(row));
+      }
+    });
+
+    nextStore.activeGame = store.activeGame;
+    store = nextStore;
+    remoteEnabled = true;
+    saveStore();
+    render();
+  } catch (error) {
+    remoteEnabled = false;
+    console.warn("Supabase sync is not available. Using local browser storage.", error);
+  }
+}
+
+async function createRemoteAccount(account, gameId) {
+  if (!remoteEnabled) {
+    return;
+  }
+
+  try {
+    await requestAccountsApi("", {
+      method: "POST",
+      body: JSON.stringify({ account: rowFromAccount(account, gameId) }),
+    });
+  } catch (error) {
+    console.warn("Could not create account in Supabase.", error);
+  }
+}
+
+async function updateRemoteAccount(account, gameId) {
+  if (!remoteEnabled) {
+    return;
+  }
+
+  try {
+    await requestAccountsApi(`?id=${encodeURIComponent(account.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ account: rowFromAccount(account, gameId) }),
+    });
+  } catch (error) {
+    console.warn("Could not update account in Supabase.", error);
+  }
 }
 
 function formatPrice(value) {
@@ -321,22 +426,30 @@ function render() {
 }
 
 function updateAccountStatus(accountId, status, gameId = store.activeGame) {
+  let updatedAccount = null;
+
   store.accounts[gameId] = getAccounts(gameId).map((account) => {
     if (account.id !== accountId) {
       return account;
     }
 
-    return {
+    updatedAccount = {
       ...account,
       status,
       delivered: status === "delivered",
       deleted: status === "deleted",
       deletedAt: status === "deleted" ? Date.now() : null,
+      updatedAt: Date.now(),
     };
+    return updatedAccount;
   });
   store.activeGame = gameId;
   saveStore();
   render();
+
+  if (updatedAccount) {
+    updateRemoteAccount(updatedAccount, gameId);
+  }
 }
 
 function deleteAccount(accountId, gameId) {
@@ -433,24 +546,31 @@ elements.form.addEventListener("submit", (event) => {
   }
 
   if (editingAccountId) {
-    store.accounts[selectedFormGame] = getAccounts(selectedFormGame).map((account) =>
-      account.id === editingAccountId
-        ? {
-            ...account,
-            image: selectedImage,
-            description,
-            info,
-            price,
-            updatedAt: Date.now(),
-          }
-        : account,
-    );
+    let updatedAccount = null;
+    store.accounts[selectedFormGame] = getAccounts(selectedFormGame).map((account) => {
+      if (account.id !== editingAccountId) {
+        return account;
+      }
+
+      updatedAccount = {
+        ...account,
+        image: selectedImage,
+        description,
+        info,
+        price,
+        updatedAt: Date.now(),
+      };
+      return updatedAccount;
+    });
     store.activeGame = selectedFormGame;
     saveStore();
     closeModal(elements.accountModal);
     editingAccountId = null;
     resetForm();
     openGamePanel(selectedFormGame);
+    if (updatedAccount) {
+      updateRemoteAccount(updatedAccount, selectedFormGame);
+    }
     return;
   }
 
@@ -469,6 +589,7 @@ elements.form.addEventListener("submit", (event) => {
   store.accounts[selectedFormGame] = [account, ...getAccounts(selectedFormGame)];
   store.activeGame = selectedFormGame;
   saveStore();
+  createRemoteAccount(account, selectedFormGame);
   closeModal(elements.accountModal);
   resetForm();
   openGamePanel(selectedFormGame);
@@ -479,3 +600,4 @@ elements.deliveredList.addEventListener("click", handleListClick);
 elements.deletedList.addEventListener("click", handleListClick);
 
 render();
+loadRemoteAccounts();
