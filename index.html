@@ -145,9 +145,20 @@
 
         <form id="accountForm" class="account-form">
           <label class="upload-box" for="accountImage">
-            <input id="accountImage" name="accountImage" type="file" accept="image/*" required />
+            <input id="accountImage" name="accountImage" type="file" accept="image/*" />
             <img id="imagePreview" alt="" />
             <span id="uploadText">Upload account image</span>
+          </label>
+
+          <label class="field">
+            <span>Offer Description</span>
+            <textarea
+              id="offerDescription"
+              name="offerDescription"
+              rows="4"
+              placeholder="Write the public offer description that should appear on the account card"
+              required
+            ></textarea>
           </label>
 
           <label class="field">
@@ -175,7 +186,7 @@
             />
           </label>
 
-          <button class="glass-button primary-action" type="submit">Save Account</button>
+          <button class="glass-button primary-action" type="submit" id="formSubmitButton">Save Account</button>
         </form>
       </section>
     </div>

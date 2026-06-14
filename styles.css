@@ -429,6 +429,15 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.offer-description {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .account-meta {
   display: flex;
   align-items: center;
@@ -455,7 +464,7 @@ h2 {
 
 .card-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -502,6 +511,10 @@ h2 {
 }
 
 .restore-button {
+  border-color: rgba(72, 232, 255, 0.46);
+}
+
+.edit-button {
   border-color: rgba(72, 232, 255, 0.46);
 }
 

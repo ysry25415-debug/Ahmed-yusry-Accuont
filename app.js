@@ -38,6 +38,7 @@ const elements = {
   imagePreview: document.querySelector("#imagePreview"),
   uploadBox: document.querySelector(".upload-box"),
   uploadText: document.querySelector("#uploadText"),
+  description: document.querySelector("#offerDescription"),
   info: document.querySelector("#accountInfo"),
   price: document.querySelector("#accountPrice"),
   pendingList: document.querySelector("#pendingList"),
@@ -47,11 +48,14 @@ const elements = {
   deliveredCount: document.querySelector("#deliveredCount"),
   activeTotal: document.querySelector("#activeTotal"),
   globalTotal: document.querySelector("#globalTotal"),
+  accountModalTitle: document.querySelector("#accountModalTitle"),
+  formSubmitButton: document.querySelector("#formSubmitButton"),
 };
 
 let store = loadStore();
 let selectedImage = "";
 let selectedFormGame = store.activeGame;
+let editingAccountId = null;
 
 function loadStore() {
   try {
@@ -171,7 +175,10 @@ function openDeletedAccounts() {
 
 function openAccountForm(gameId) {
   selectedFormGame = gameId;
+  editingAccountId = null;
   elements.formGameName.textContent = games[gameId].name;
+  elements.accountModalTitle.textContent = "Add Account";
+  elements.formSubmitButton.textContent = "Save Account";
   resetForm();
   closeModal(elements.gamePickerModal);
   openModal(elements.accountModal);
@@ -180,9 +187,34 @@ function openAccountForm(gameId) {
 function resetForm() {
   selectedImage = "";
   elements.form.reset();
+  elements.imageInput.value = "";
   elements.imagePreview.removeAttribute("src");
   elements.uploadBox.classList.remove("has-image");
   elements.uploadText.textContent = "Upload account image";
+}
+
+function openEditForm(accountId, gameId) {
+  const account = getAccounts(gameId).find((item) => item.id === accountId);
+  if (!account) {
+    return;
+  }
+
+  selectedFormGame = gameId;
+  editingAccountId = accountId;
+  selectedImage = account.image;
+  elements.form.reset();
+  elements.imageInput.value = "";
+  elements.formGameName.textContent = games[gameId].name;
+  elements.accountModalTitle.textContent = "Edit Account";
+  elements.formSubmitButton.textContent = "Save Changes";
+  elements.description.value = account.description || "";
+  elements.info.value = account.info || "";
+  elements.price.value = account.price ?? "";
+  elements.imagePreview.src = account.image;
+  elements.uploadBox.classList.add("has-image");
+  elements.uploadText.textContent = "Change image";
+  closeAllModals();
+  openModal(elements.accountModal);
 }
 
 function createAccountCard(account, gameId = store.activeGame, options = {}) {
@@ -195,18 +227,22 @@ function createAccountCard(account, gameId = store.activeGame, options = {}) {
       ? `
         <button class="glass-button restore-button" type="button" data-action="restore" data-id="${account.id}" ${gameAttribute}>Restore</button>
         <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Restore Delivered</button>
+        <button class="glass-button edit-button" type="button" data-action="edit" data-id="${account.id}" ${gameAttribute}>Edit</button>
       `
       : `
+        <button class="glass-button edit-button" type="button" data-action="edit" data-id="${account.id}" ${gameAttribute}>Edit</button>
         <button class="glass-button deliver-button" type="button" data-action="deliver" data-id="${account.id}" ${gameAttribute}>Delivered</button>
         <button class="glass-button pending-button" type="button" data-action="pending" data-id="${account.id}" ${gameAttribute}>Not Delivered</button>
         <button class="glass-button delete-button" type="button" data-action="delete" data-id="${account.id}" ${gameAttribute} aria-label="Delete account">Delete</button>
       `;
   const gameTag = options.showGame ? `<span class="account-game-tag">${games[gameId].name}</span>` : "";
+  const description = account.description || "No offer description added.";
 
   card.innerHTML = `
     <img src="${account.image}" alt="Account screenshot" />
     <div class="account-body">
       ${gameTag}
+      <p class="offer-description"></p>
       <p class="account-info"></p>
       <div class="account-meta">
         <span class="price-pill">${formatPrice(account.price)}</span>
@@ -218,6 +254,7 @@ function createAccountCard(account, gameId = store.activeGame, options = {}) {
     </div>
   `;
 
+  card.querySelector(".offer-description").textContent = description;
   card.querySelector(".account-info").textContent = account.info;
   const deliverButton = card.querySelector('[data-action="deliver"]');
   const pendingButton = card.querySelector('[data-action="pending"]');
@@ -335,6 +372,10 @@ function handleListClick(event) {
   if (action === "delete") {
     deleteAccount(id, gameId);
   }
+
+  if (action === "edit") {
+    openEditForm(id, gameId);
+  }
 }
 
 elements.tabs.forEach((tab) => {
@@ -383,16 +424,40 @@ elements.imageInput.addEventListener("change", () => {
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
 
+  const description = elements.description.value.trim();
   const info = elements.info.value.trim();
   const price = Number(elements.price.value);
 
-  if (!selectedImage || !info || Number.isNaN(price)) {
+  if (!selectedImage || !description || !info || Number.isNaN(price)) {
+    return;
+  }
+
+  if (editingAccountId) {
+    store.accounts[selectedFormGame] = getAccounts(selectedFormGame).map((account) =>
+      account.id === editingAccountId
+        ? {
+            ...account,
+            image: selectedImage,
+            description,
+            info,
+            price,
+            updatedAt: Date.now(),
+          }
+        : account,
+    );
+    store.activeGame = selectedFormGame;
+    saveStore();
+    closeModal(elements.accountModal);
+    editingAccountId = null;
+    resetForm();
+    openGamePanel(selectedFormGame);
     return;
   }
 
   const account = {
     id: `${Date.now()}-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(16).slice(2)}`,
     image: selectedImage,
+    description,
     info,
     price,
     status: "pending",
